@@ -1,12 +1,15 @@
+import { Coord, CoordUtil } from '@src/utils/coord';
 import { defineStore } from 'pinia';
 import {
   __DesignFooterHeight__,
   __DesignHeaderHeight__,
   __DesignToolsWidth__,
   __GridWidth__,
-  useLayoutStore,
   __GridGapWidth__,
-} from './layout';
+} from '@src/utils/constant';
+
+import { useLayoutStore } from './layout';
+import { Color } from '@src/utils/color';
 
 /**
  * 设计工具
@@ -22,9 +25,10 @@ export enum DesignToolsEnum {
   Template = 'template', // 模板
 }
 
-export type Coord = {
-  x: number;
-  y: number;
+export type Block = {
+  // startCoord: Coord;
+  shapeCoords: Coord[];
+  fill: Color;
 };
 
 function viewportSize2canvasWrapperPadding(viewportSize: { height: number; width: number }) {
@@ -36,19 +40,21 @@ function viewportSize2canvasWrapperPadding(viewportSize: { height: number; width
 
 export const useDesignStore = defineStore('design', {
   state: () => ({
-    usingTool: DesignToolsEnum.ZoomLens, // 当前使用的工具
+    usingTool: DesignToolsEnum.Brash, // 当前使用的工具
     canvasColsCount: 10, // 画布列数
     canvasRowsCount: 10, // 画布行数
     canvasScale: 1, // 画布缩放比例
     canvasOffset: { x: 0, y: 0 }, // 画布偏移量
     // canvasWrapperSize: { width: 0, height: 0 }, // 画布容器大小
     viewportSize: { width: 0, height: 0 }, // 画布容器大小
+    selectedBlockIndex: -1, // 选中的块索引
+    blocks: [] as Block[], // 块
   }),
   getters: {
     canvasSize: ({ canvasColsCount, canvasRowsCount }) => {
       return {
-        width: canvasColsCount * __GridWidth__ + __GridGapWidth__,
-        height: canvasRowsCount * __GridWidth__ + __GridGapWidth__,
+        width: canvasColsCount * (__GridWidth__ + __GridGapWidth__) + __GridGapWidth__,
+        height: canvasRowsCount * (__GridWidth__ + __GridGapWidth__) + __GridGapWidth__,
       };
     },
     canvasWrapperPadding: ({ viewportSize }) => {
@@ -99,6 +105,26 @@ export const useDesignStore = defineStore('design', {
         x: (canvasWrapperSize.width - this.canvasSize.width) / 2,
         y: (canvasWrapperSize.height - this.canvasSize.height) / 2,
       };
+    },
+
+    // 创建或扩张滑块
+    createOrExtendBlock(gridCoord: Coord) {
+      if (this.selectedBlockIndex > -1 && this.blocks[this.selectedBlockIndex] !== undefined) {
+        const block = this.blocks[this.selectedBlockIndex];
+        // 如果当前块有一个格子在目标格子周围，就扩张当前块
+        const canExtend = block.shapeCoords.some((coord) => CoordUtil.isAround(gridCoord, coord));
+        if (canExtend) {
+          block.shapeCoords.push(gridCoord);
+          console.log('扩张滑块');
+          return;
+        }
+      }
+      console.log('新增滑块');
+      this.blocks.push({
+        shapeCoords: [gridCoord],
+        fill: Color.random(),
+      });
+      this.selectedBlockIndex = this.blocks.length - 1;
     },
   },
 });

@@ -226,6 +226,11 @@ const onViewportMouseDown = (e: MouseEvent) => {
   document.addEventListener("mouseup", stopMoveCanvasWrapperByMouse);
   // 缩放画布容器
   zoomCanvasWrapperByMouse(e);
+  // 
+  if(designStore.usingTool === DesignToolsEnum.Brash) {
+    console.log('onViewportMouseDown')
+    designStore.selectedBlockIndex = -1;
+  }
 };
 
 const onViewportWheel = (e: WheelEvent) => {
