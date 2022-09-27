@@ -33,6 +33,7 @@
         }"
         @mousedown="onViewportMouseDown"
         @wheel="onViewportWheel"
+        @click="onViewportClick"
       >
         <div
           class="design-canvas-wrapper"
@@ -221,20 +222,25 @@ const zoomCanvasWrapperByMouse = (e: MouseEvent) => {
 };
 
 const onViewportMouseDown = (e: MouseEvent) => {
+  if (e.button !== 0) {
+    return;
+  }
   // 鼠标拖动画布容器
   document.addEventListener("mousemove", moveCanvasWrapperByMouse);
   document.addEventListener("mouseup", stopMoveCanvasWrapperByMouse);
   // 缩放画布容器
   zoomCanvasWrapperByMouse(e);
-  // 
-  if(designStore.usingTool === DesignToolsEnum.Brash) {
-    console.log('onViewportMouseDown')
-    designStore.selectedBlockIndex = -1;
-  }
 };
 
 const onViewportWheel = (e: WheelEvent) => {
   e.preventDefault(); // 清除默认行为，防止滚动鼠标触发滚动条改变
+};
+
+const onViewportClick = () => {
+  // 取消选中块
+  designStore.selectedBlockIndex = -1;
+  // 关闭右键菜单
+  designStore.showBlockContextMenu = false;
 };
 </script>
 

@@ -147,15 +147,10 @@ export class CoordUtil {
     };
   }
 
-  static coord2CenterCircle(coord: Coord): Circle {
-    const centerX =
-      coord.x * (__GridWidth__ + __GridGapWidth__) + __GridWidth__ / 2 + __GridGapWidth__;
-    const centerY =
-      coord.y * (__GridWidth__ + __GridGapWidth__) + __GridWidth__ / 2 + __GridGapWidth__;
+  static coord2GridCenter(coord: Coord): Coord {
     return {
-      x: centerX,
-      y: centerY,
-      radius: __GridWidth__ / 10,
+      x: coord.x * (__GridWidth__ + __GridGapWidth__) + __GridWidth__ / 2 + __GridGapWidth__,
+      y: coord.y * (__GridWidth__ + __GridGapWidth__) + __GridWidth__ / 2 + __GridGapWidth__,
     };
   }
 

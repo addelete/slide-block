@@ -25,8 +25,16 @@ export enum DesignToolsEnum {
   Template = 'template', // 模板
 }
 
+export enum BlockRoleEnum {
+  King = 'king', // 王
+  Assassin = 'assassin', // 刺客
+  EdgePawn = 'edgePawn', // 边兵
+  Vertical = 'vertical', // 垂直
+  Horizontal = 'horizontal', // 水平
+}
+
 export type Block = {
-  // startCoord: Coord;
+  roles: Partial<Record<BlockRoleEnum, boolean>>;
   shapeCoords: Coord[];
   fill: Color;
 };
@@ -49,6 +57,9 @@ export const useDesignStore = defineStore('design', {
     viewportSize: { width: 0, height: 0 }, // 画布容器大小
     selectedBlockIndex: -1, // 选中的块索引
     blocks: [] as Block[], // 块
+    mouseOnBlockIndex: -1, // 鼠标所在的块索引
+    showBlockContextMenu: false, // 是否显示块右键菜单
+    blockContextMenuPosition: { x: 0, y: 0 }, // 块右键菜单位置
   }),
   getters: {
     canvasSize: ({ canvasColsCount, canvasRowsCount }) => {
@@ -121,10 +132,66 @@ export const useDesignStore = defineStore('design', {
       }
       console.log('新增滑块');
       this.blocks.push({
+        roles: {},
         shapeCoords: [gridCoord],
         fill: Color.random(),
       });
       this.selectedBlockIndex = this.blocks.length - 1;
+    },
+
+    // 删除或裁切滑块
+    removeOrCutBlock(gridCoord: Coord, blockIndex?: number) {
+      if (blockIndex === undefined) {
+        blockIndex = this.blocks.findIndex((block) =>
+          block.shapeCoords.some((coord) => CoordUtil.isEqual(coord, gridCoord))
+        );
+      }
+      if (blockIndex > -1) {
+        const block = this.blocks[blockIndex];
+        const gridIndex = block.shapeCoords.findIndex((coord) =>
+          CoordUtil.isEqual(coord, gridCoord)
+        );
+        if (gridIndex > -1) {
+          block.shapeCoords.splice(gridIndex, 1);
+          if (block.shapeCoords.length === 0) {
+            if (blockIndex === this.selectedBlockIndex) {
+              this.selectedBlockIndex = -1;
+            }
+            this.blocks.splice(blockIndex, 1);
+          }
+        }
+      }
+    },
+
+    /**
+     * 选中或取消选中滑块
+     */
+    toggleSelectBlock(blockIndex?: number) {
+      if (blockIndex === undefined) {
+        blockIndex = this.mouseOnBlockIndex;
+      }
+      console.log('选中滑块', blockIndex);
+      if (this.selectedBlockIndex === blockIndex) {
+        this.selectedBlockIndex = -1;
+      } else {
+        this.selectedBlockIndex = blockIndex;
+      }
+    },
+
+    /**
+     * 设置或取消设置滑块角色
+     * @param role
+     */
+    toggleBlockRole(role: BlockRoleEnum, blockIndex?: number) {
+      console.log('toggleBlockRole', role, blockIndex);
+      if (blockIndex === undefined) {
+        blockIndex = this.mouseOnBlockIndex;
+      }
+      if (blockIndex === -1) {
+        return;
+      }
+      const block = this.blocks[this.mouseOnBlockIndex];
+      block.roles[role] = !block.roles[role];
     },
   },
 });

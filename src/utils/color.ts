@@ -1,4 +1,4 @@
-let randomStart= 0;
+let randomStart = Math.floor(Math.random() * 360);
 
 export class Color {
   h: number = 0;

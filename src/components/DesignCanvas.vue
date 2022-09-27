@@ -1,78 +1,85 @@
 <template>
-  <v-stage
-    :width="designStore.canvasSize.width"
-    :height="designStore.canvasSize.height"
+  <div
+    class="design-canvas"
+    ref="designCanvasRef"
+    @click.stop=""
+    @contextmenu.stop=""
   >
-    <v-layer>
-      <v-rect
-        v-for="(grid, gi) in background"
-        :key="gi"
-        :x="grid.render.x"
-        :y="grid.render.y"
-        :width="grid.render.width"
-        :height="grid.render.height"
-        :fill="emptyGridFill"
-        @mousedown="onGridMousedown(grid, $event)"
-      >
-      </v-rect>
-    </v-layer>
-    <v-layer>
-      <v-group
-        v-for="(block, bi) in blocks"
-        :key="bi"
-        @mousedown="onBlockMousedown(bi, $event)"
-      >
+    <v-stage
+      :width="designStore.canvasSize.width"
+      :height="designStore.canvasSize.height"
+    >
+      <v-layer>
         <v-rect
-          v-for="(rect, ri) in block.rects"
-          :key="ri"
-          :x="rect.render.x"
-          :y="rect.render.y"
-          :width="rect.render.width"
-          :height="rect.render.height"
-          :fill="block.rectFill"
-        ></v-rect>
-        <v-ring
-          v-for="(ring, ri) in block.rings"
-          :key="ri"
-          :x="ring.x"
-          :y="ring.y"
-          :innerRadius="ring.innerRadius"
-          :outerRadius="ring.outerRadius"
-          :fill="block.ringFill"
+          v-for="(grid, gi) in background"
+          :key="gi"
+          :x="grid.render.x"
+          :y="grid.render.y"
+          :width="grid.render.width"
+          :height="grid.render.height"
+          :fill="emptyGridFill"
+          @click="onGridClick(grid, $event)"
         >
-        </v-ring>
-        <v-circle
-          v-for="(circle, ci) in block.circles"
-          :key="ci"
-          :x="circle.x"
-          :y="circle.y"
-          :radius="circle.radius"
-          :fill="block.circleFill"
+        </v-rect>
+      </v-layer>
+      <v-layer>
+        <v-group
+          v-for="(block, bi) in blocks"
+          :key="bi"
+          @click="onBlockClick(bi, $event)"
+          @contextmenu="onBlockContextmenu(bi, $event)"
         >
-        </v-circle>
-
-        <v-line
-          v-for="(line, li) in block.lines"
-          :key="li"
-          :points="line.points"
-          :stroke="block.lineFill"
-          :strokeWidth="1"
-        ></v-line>
-      </v-group>
-    </v-layer>
-  </v-stage>
+          <v-line
+            v-for="(line, li) in block.lines"
+            :key="li"
+            :points="line.points"
+            :stroke="block.lineFill"
+            :strokeWidth="line.strokeWidth"
+          ></v-line>
+          <v-rect
+            v-for="(rect, ri) in block.rects"
+            :key="ri"
+            :x="rect.render.x"
+            :y="rect.render.y"
+            :width="rect.render.width"
+            :height="rect.render.height"
+            :fill="block.rectFill"
+            @click="onBlockGridClick(rect, bi, $event)"
+          ></v-rect>
+          <v-ring
+            v-for="(ring, ri) in block.rings"
+            :key="ri"
+            :x="ring.x"
+            :y="ring.y"
+            :innerRadius="ring.innerRadius"
+            :outerRadius="ring.outerRadius"
+            :fill="block.ringFill"
+          >
+          </v-ring>
+        </v-group>
+      </v-layer>
+    </v-stage>
+    <design-block-context-menu />
+  </div>
 </template>
 
 <script lang="ts" setup>
-import { DesignToolsEnum, useDesignStore } from "@src/stores/design";
-import { computed } from "vue";
+import {
+  DesignToolsEnum,
+  useDesignStore,
+  BlockRoleEnum,
+} from "@src/stores/design";
+import { computed, ref } from "vue";
 import { KonvaEventObject } from "konva/lib/Node";
 import { Coord, CoordUtil, Rect, RectTypeEnum } from "@src/utils/coord";
 import { __GridGapWidth__, __GridWidth__ } from "@src/utils/constant";
+import DesignBlockContextMenu from "@src/components/DesignBlockContextMenu.vue";
 
 const designStore = useDesignStore();
 
 const emptyGridFill = "#ddd";
+
+const designCanvasRef = ref<HTMLElement>();
 
 const background = computed(() => {
   return Array.from({
@@ -99,6 +106,7 @@ const blocks = computed(() => {
     }[] = [];
     const lines: {
       points: number[];
+      strokeWidth: number;
     }[] = [];
 
     const rings: {
@@ -110,33 +118,24 @@ const blocks = computed(() => {
 
     if (isSelected) {
       block.shapeCoords.forEach((coord) => {
-        const circle = CoordUtil.coord2CenterCircle(coord);
+        const circle = CoordUtil.coord2GridCenter(coord);
         rings.push({
           x: circle.x,
           y: circle.y,
-          innerRadius: circle.radius,
-          outerRadius: circle.radius + __GridGapWidth__,
+          innerRadius: __GridWidth__ / 10,
+          outerRadius: __GridWidth__ / 10 + __GridGapWidth__,
         });
       });
     }
-
-    const circleSet = new Set<string>();
-    const tryPushCircle = (coord: Coord) => {
-      const centerCircle = CoordUtil.coord2CenterCircle(coord);
-      const centerKey = CoordUtil.coord2HashCode(coord);
-      if (!circleSet.has(centerKey)) {
-        circles.push(centerCircle);
-        circleSet.add(centerKey);
-      }
-    };
     const lineSet = new Set<string>();
     const tryPushLine = (coord1: Coord, coord2: Coord) => {
       const lineKey = CoordUtil.coords2HashCode([coord1, coord2]);
       if (!lineSet.has(lineKey)) {
-        const center1 = CoordUtil.coord2CenterCircle(coord1);
-        const center2 = CoordUtil.coord2CenterCircle(coord2);
+        const center1 = CoordUtil.coord2GridCenter(coord1);
+        const center2 = CoordUtil.coord2GridCenter(coord2);
         lines.push({
           points: [center1.x, center1.y, center2.x, center2.y],
+          strokeWidth: __GridGapWidth__,
         });
         lineSet.add(lineKey);
       }
@@ -177,13 +176,9 @@ const blocks = computed(() => {
         }
 
         if (grid0 && grid2 && !grid1 && !grid3) {
-          tryPushCircle(grid0);
-          tryPushCircle(grid2);
           tryPushLine(grid0, grid2);
         }
         if (!grid0 && !grid2 && grid1 && grid3) {
-          tryPushCircle(grid1);
-          tryPushCircle(grid3);
           tryPushLine(grid1, grid3);
         }
       }
@@ -194,7 +189,7 @@ const blocks = computed(() => {
       rectFill: block.fill.toString(),
       circleFill: block.fill.darken(20).toString(),
       ringFill: block.fill.darken(10).toString(),
-      lineFill: block.fill.darken(20).toString(),
+      lineFill: block.fill.toString(),
       rects,
       circles,
       rings,
@@ -203,36 +198,87 @@ const blocks = computed(() => {
   });
 });
 
-const onGridMousedown = (grid: Rect, event: KonvaEventObject<PointerEvent>) => {
+const onGridClick = (grid: Rect, event: KonvaEventObject<PointerEvent>) => {
   if (grid.type !== RectTypeEnum.Grid) {
     return;
   }
-  if (designStore.usingTool === DesignToolsEnum.Brash) {
+  if ([DesignToolsEnum.Brash].includes(designStore.usingTool)) {
     event.cancelBubble = true; // 阻止冒泡
-    event.evt.stopPropagation(); // 阻止默认事件
     designStore.createOrExtendBlock(grid.coord);
   }
 };
 
-const onBlockMousedown = (
+const onBlockClick = (
   blockIndex: number,
-  event: KonvaEventObject<PointerEvent>
+  event: KonvaEventObject<MouseEvent>
 ) => {
-  console.log("onBlockMousedown", blockIndex);
-
+  designStore.mouseOnBlockIndex = blockIndex;
   if (
-    designStore.usingTool === DesignToolsEnum.Selector ||
-    designStore.usingTool === DesignToolsEnum.Brash
+    [DesignToolsEnum.Selector, DesignToolsEnum.Brash].includes(
+      designStore.usingTool
+    )
   ) {
     event.cancelBubble = true; // 阻止冒泡
-    event.evt.stopPropagation(); // 阻止默认事件
-    designStore.selectedBlockIndex = blockIndex;
+    designStore.toggleSelectBlock();
+  }
+};
+
+/**
+ * 在滑块的格子里点击事件
+ * （当前工具是橡皮）或（当前工具是刷子且按下alt）
+ * 点击滑块上的格子表示删除格子
+ * 如果此滑块仅有一个格子则删除滑块
+ * @param rect
+ * @param blockIndex
+ * @param event
+ */
+const onBlockGridClick = (
+  rect: Rect,
+  blockIndex: number,
+  event: KonvaEventObject<MouseEvent>
+) => {
+  if (rect.type !== RectTypeEnum.Grid) {
+    return;
+  }
+  if (
+    designStore.usingTool === DesignToolsEnum.Erase ||
+    (designStore.usingTool === DesignToolsEnum.Brash && event.evt.altKey)
+  ) {
+    event.cancelBubble = true; // 阻止冒泡
+    designStore.removeOrCutBlock(rect.coord, blockIndex);
+  }
+};
+
+/**
+ * 滑块右键事件
+ * 唤出滑块右键菜单
+ * @param blockIndex
+ * @param event
+ */
+const onBlockContextmenu = (
+  blockIndex: number,
+  event: KonvaEventObject<MouseEvent>
+) => {
+  designStore.mouseOnBlockIndex = blockIndex;
+  if (
+    [DesignToolsEnum.Selector, DesignToolsEnum.Brash].includes(
+      designStore.usingTool
+    )
+  ) {
+    event.cancelBubble = true; // 阻止冒泡
+    event.evt.preventDefault(); // 阻止默认事件
+    const designCanvasRect = designCanvasRef.value!.getBoundingClientRect();
+    designStore.showBlockContextMenu = true;
+    designStore.blockContextMenuPosition = {
+      x: event.evt.clientX - designCanvasRect.left,
+      y: event.evt.clientY - designCanvasRect.top,
+    };
   }
 };
 </script>
 
 <style lang="scss">
 .design-canvas {
-  background: #fff;
+  
 }
 </style>
